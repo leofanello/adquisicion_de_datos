@@ -1,59 +1,48 @@
 // Inclusion de bibliotecas
 #include <stdio.h>
+#include <math.h>
 #include "pico/stdlib.h"
-#include "hardware/i2c.h"
-#include "lcd_i2c.h"
-#include "bmp280.h"
+#include "hardware/adc.h"
 
 /*
  * @brief Programa principal
  */ 
 int main() {
+    // Variable para almacenar el resultado del ADC
+    uint16_t adc_value = 0;
+    // Variable para guardar el valor de temperatura
+    float temperatura = 0.0;
+    // Constante de proporcionalidad del termistor
+    const uint16_t beta = 4000;
     // Habilito USB
     stdio_init_all();
-    // Incicializacion del I2C0
-    i2c_init(i2c0, 100000);
-    gpio_set_function(4, GPIO_FUNC_I2C);
-    gpio_set_function(5, GPIO_FUNC_I2C);
-    gpio_pull_up(4);
-    gpio_pull_up(5);
-    // Inicializacion del LCD
-    lcd_init();
-    // Inicializo BMP280
-    bmp280_init();
-
-    // Obtengo parametros de compensacion
-    struct bmp280_calib_param params;
-    bmp280_get_calib_params(&params);
-
-    // Variables para temperatura y presion
-    int32_t raw_temperature;
-    int32_t raw_pressure;
-    // Variable para texto 
-    char str[16];
-    // Darle tiempo al BMP que se calibre
-    sleep_ms(250);
-
+    // Inicializo ADC
+    adc_init();
+    // Inicializo GPIO26 como entrada analogicaS
+    adc_gpio_init(26);
+    // Selecciono canal analogico
+    adc_select_input(0);
     while(true) {
-        // Leo temperatura y presion
-        bmp280_read_raw(&raw_temperature, &raw_pressure);
-        // Calculo temperatura y presion
-        int32_t temperature = bmp280_convert_temp(raw_temperature, &params);
-        int32_t pressure = bmp280_convert_pressure(raw_pressure, raw_temperature, &params);
-        // Limpio LCD
-        lcd_clear();
-        // Armo string
-        sprintf(str, "P=%.3f kPa", pressure / 1000.f);
-        // Imprimo string en primer fila
-        lcd_string(str);
-        // Muevo a segunda fila
-        lcd_set_cursor(1, 0);
-        // Creo segundo string
-        sprintf(str, "T=%.2f C", temperature / 100.f);
-        // Imprimo string en segunda fila
-        lcd_string(str);
+        // Leer NTC
+        // Calculo temperatura
+    
+        
+        int i = 0;
+        temperatura = 0;
+        for (i=0; i<10; i++) {
+            adc_value= adc_read();
+            float vx = (adc_value*3.3)/4095;
+            float rt = 3300.0/((3.3/vx)-1);
+            float temp = (((beta*298.15)) / ((298*log(rt/2200)) + beta)) - 273;
+           temperatura += temp;
+        }
+        temperatura = temperatura / 10;
+        //printf("Valor el adc es %d \n",adc_value);
+        //printf("El valor de la tension es %.2f\n",vx);
+        //printf("El valor de resistencia es %.2f\n",rt);
+        printf("La temperatura es %.2f\n\n",temperatura);
         // Espero 500 ms
-        sleep_ms(500);
+        sleep_ms(500);   
     }
     return 0;
 }
